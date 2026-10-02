@@ -1,0 +1,9 @@
+.git
+results/
+tests/
+drills/
+demo/
+docs/
+terraform/
+.semgrep/
+**/__pycache__

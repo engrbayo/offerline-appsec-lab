@@ -1,0 +1,47 @@
+# Nightly: full scans that are too slow for a PR, plus DAST against the
+# running container. Also refreshes the baseline the PR gate compares against.
+name: nightly-dast
+on:
+  schedule: [{ cron: "17 7 * * *" }]   # 07:17 UTC, off the top of the hour
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dast:
+    runs-on: ubuntu-latest
+    env:
+      OFFERLINE_JWT_SECRET: ${{ secrets.DAST_JWT_SECRET }}   # test-only secret, never the production one
+      OFFERLINE_ENABLE_DOCS: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Start the API
+        run: |
+          docker build -t offerline-api:dast .
+          docker run -d --name api -p 8000:8000 -e OFFERLINE_JWT_SECRET -e OFFERLINE_ENABLE_DOCS offerline-api:dast
+          for i in $(seq 1 30); do curl -sf localhost:8000/healthz && break; sleep 1; done
+      - name: Mint short-lived test tokens (tenant bank-a, all scopes)
+        run: |
+          pip install pyjwt
+          echo "ZAP_TOKEN=$(python3 security/mint_test_token.py bank-a)" >> "$GITHUB_ENV"
+      - name: ZAP API scan, authenticated, driven by the OpenAPI spec
+        run: |
+          docker run --network host -v "$PWD":/zap/wrk:rw \
+            -e ZAP_AUTH_HEADER=Authorization -e ZAP_AUTH_HEADER_VALUE="Bearer $ZAP_TOKEN" \
+            -e ZAP_AUTH_HEADER_SITE=localhost \
+            ghcr.io/zaproxy/zaproxy:stable zap-api-scan.py \
+              -t http://localhost:8000/openapi.json -f openapi \
+              -c security/zap-rules.tsv -J zap.json -r zap.html -I || true
+      - name: "Business-logic probe: cross-tenant access (what DAST can't know)"
+        run: |
+          pip install httpx
+          python3 security/authz_probe.py http://localhost:8000
+      - name: Gate (ZAP is warn-only during rollout)
+        run: |
+          pip install pyyaml
+          mkdir -p results && cp zap.json results/
+          python3 security/gate.py --results results/ >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: dast-report, path: "zap.*" }

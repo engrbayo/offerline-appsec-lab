@@ -1,0 +1,11 @@
+# ZAP rule tuning: rule-id <TAB> action (IGNORE|WARN|FAIL) <TAB> reason
+# Tuned after the first runs against this API; every IGNORE has a reason.
+10036	IGNORE	Server header: uvicorn runs with --no-server-header; ZAP flags the ALB's header in some setups
+10049	IGNORE	Non-storable content: intended; we send Cache-Control no-store on purpose
+10104	IGNORE	User agent fuzzer: API clients are servers; behavior is identical by design
+90004	IGNORE	Spectre isolation headers: JSON API, never rendered in a browser
+40018	FAIL	SQL injection
+40012	FAIL	Reflected XSS
+40014	FAIL	Persistent XSS
+90019	FAIL	Server-side include
+40046	FAIL	Server-side request forgery

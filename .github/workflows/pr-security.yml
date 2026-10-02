@@ -1,0 +1,123 @@
+# Runs on every pull request. Target: under 5 minutes added to the PR, so
+# developers don't learn to route around it.
+#
+#   secrets ─┐
+#   sast ────┤
+#   sca ─────┼──> gate (one decision, one PR summary)
+#   iac ─────┤
+#   image ───┤
+#   tests ───┘   (authorization tests are security tests)
+#
+# Third-party actions: pin each to a full commit SHA before using this for
+# real (a tag can be moved; a SHA can't). Tags are shown here for readability.
+name: pr-security
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read            # least privilege for the GITHUB_TOKEN
+
+concurrency:
+  group: pr-security-${{ github.event.pull_request.number }}
+  cancel-in-progress: true  # a new push cancels the stale run
+
+jobs:
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: gitleaks (only commits in this PR)
+        run: |
+          curl -sSfL https://github.com/gitleaks/gitleaks/releases/download/v8.28.0/gitleaks_8.28.0_linux_x64.tar.gz | tar xz gitleaks
+          ./gitleaks git . --log-opts="${{ github.event.pull_request.base.sha }}..${{ github.sha }}" \
+            --no-banner -f json -r gitleaks.json --exit-code 0
+      - uses: actions/upload-artifact@v4
+        with: { name: gitleaks, path: gitleaks.json }
+
+  sast:
+    runs-on: ubuntu-latest
+    container: semgrep/semgrep:latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: Custom rules have passing tests
+        run: semgrep --test --metrics=off .semgrep/tests/
+      - name: Semgrep, diff-aware (only findings introduced by this PR)
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          semgrep scan --metrics=off \
+            --config p/python --config p/owasp-top-ten --config .semgrep/offerline.yml \
+            --baseline-commit "${{ github.event.pull_request.base.sha }}" \
+            --json -o semgrep.json
+      - uses: actions/upload-artifact@v4
+        with: { name: semgrep, path: semgrep.json }
+
+  sca:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.13" }
+      - run: pip install pip-audit && pip-audit -r requirements.txt -f json -o pip-audit.json || true
+      - uses: actions/upload-artifact@v4
+        with: { name: pip-audit, path: pip-audit.json }
+
+  iac:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install checkov && checkov -d terraform --quiet -o json > checkov.json || true
+      - uses: actions/upload-artifact@v4
+        with: { name: checkov, path: checkov.json }
+
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t offerline-api:${{ github.sha }} .
+      - name: Trivy image scan (OS packages + Python libs in the image)
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+          # No --ignore-unfixed and exit 0: the gate decides. Unfixed CVEs are tracked, not blocked.
+          trivy image --format json -o trivy.json offerline-api:${{ github.sha }}
+      - uses: actions/upload-artifact@v4
+        with: { name: trivy, path: trivy.json }
+
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.13" }
+      - run: pip install -r requirements-dev.txt && pytest -q
+
+  gate:
+    needs: [secrets, sast, sca, iac, image, tests]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write   # only this job may comment
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: { path: results, merge-multiple: true }
+      - name: Threat intel for prioritization (CISA KEV)
+        run: |
+          mkdir -p security/intel
+          curl -sSfL https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json \
+            -o security/intel/kev.json || echo "KEV unavailable; gate runs without it"
+          python3 security/fetch_epss.py results/ security/intel/epss.csv || echo "EPSS unavailable"
+      - name: Decide
+        run: |
+          pip install pyyaml
+          set +e
+          python3 security/gate.py --results results/ > gate.md
+          code=$?
+          cat gate.md >> "$GITHUB_STEP_SUMMARY"
+          exit $code
+      - name: Comment on PR
+        if: always()
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: gh pr comment ${{ github.event.pull_request.number }} --body-file gate.md --edit-last || gh pr comment ${{ github.event.pull_request.number }} --body-file gate.md

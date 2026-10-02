@@ -1,0 +1,9 @@
+# Changes to security controls need an AppSec review. Everything else doesn't.
+/security/            @offerline/appsec
+/.semgrep/            @offerline/appsec
+/.github/workflows/   @offerline/appsec
+/app/auth.py          @offerline/appsec
+/app/authz.py         @offerline/appsec
+/app/egress.py        @offerline/appsec
+/terraform/iam.tf     @offerline/appsec
+/terraform/kms.tf     @offerline/appsec

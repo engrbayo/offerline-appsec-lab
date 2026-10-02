@@ -1,0 +1,4 @@
+fastapi==0.142.2
+uvicorn==0.52.4
+PyJWT==2.15.0  # 2.14.0: CVE-2026-101918, not reachable here (see docs/findings-log.md), upgraded anyway
+pydantic==2.13.5

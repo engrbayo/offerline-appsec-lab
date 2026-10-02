@@ -1,0 +1,24 @@
+# Accepted risks. Every entry needs an owner, a ticket, an approver and an
+# expiry no more than 90 days out. Expired entries stop suppressing and the
+# finding counts again: that is how exceptions get revisited, not forgotten.
+exceptions:
+  - match: {tool: checkov, rule: CKV_AWS_144}
+    reason: >-
+      Cross-region replication of the ingest bucket. Files are transient
+      (deleted after 30 days) and the bank keeps the source copy, so DR
+      replication would only add a second copy of sensitive data.
+    owner: data-platform
+    ticket: SEC-142
+    approved_by: head-of-security
+    expires: 2026-12-31
+
+  - match: {tool: checkov, rule: CKV2_AWS_57}
+    reason: >-
+      Automatic rotation for the JWT signing secret needs a rotation Lambda
+      that supports two active keys during cutover. Until it ships, the secret
+      is rotated manually each month (runbook RB-7) and access is limited to
+      the ingest worker role.
+    owner: platform-team
+    ticket: SEC-151
+    approved_by: head-of-security
+    expires: 2026-11-30

@@ -1,0 +1,46 @@
+# What fails a pull request. Everything else is reported in the PR summary
+# and tracked against its SLA, but does not stop the merge.
+#
+# Principle: block only what is new, real and serious. A gate that blocks on
+# 2,000 legacy medium findings gets bypassed in a week.
+block:
+  min_severity: high        # high and critical
+  min_confidence: high      # tool or rule metadata says the match is reliable
+  only_new: true            # existing debt is tracked by SLA, not by blocking every PR
+  sca_requires_fix: true    # don't block a PR for a CVE nobody can patch yet; track it
+
+always_block:
+  tools: [gitleaks]         # a committed secret is never "old debt": rotate it now
+  known_exploited: true     # CVE on the CISA KEV list, regardless of severity
+
+# New tools start in report-only mode. Promote to blocking once the false
+# positive rate on our code is measured and tuned (target < 10%).
+warn_only_tools: [zap]
+
+escalation:
+  epss_threshold: 0.10      # >= 10% predicted exploitation in 30 days: treat medium as high
+  internet_facing_bump: true  # findings in app/ (served to partners) rank above tools/scripts
+
+sla_days: {critical: 7, high: 30, medium: 90, low: 180}
+
+exceptions:
+  max_days: 90              # no permanent exceptions; renewals need a fresh approval
+
+# Checkov has no severities without a vendor API key, so we rank the checks
+# we care about ourselves. Unlisted failed checks are medium.
+checkov_severity:
+  critical:
+    - CKV_AWS_20    # S3 bucket allows public READ
+    - CKV_AWS_57    # S3 bucket allows public WRITE
+  high:
+    - CKV_AWS_19    # S3 not encrypted at rest
+    - CKV_AWS_145   # S3 not encrypted with KMS
+    - CKV_AWS_53    # S3 block public ACLs
+    - CKV_AWS_54    # S3 block public policy
+    - CKV_AWS_55    # S3 ignore public ACLs
+    - CKV_AWS_56    # S3 restrict public buckets
+    - CKV_AWS_7     # KMS key rotation disabled
+    - CKV_AWS_355   # IAM policy allows "*" as resource for restricted actions
+    - CKV_AWS_290   # IAM policy allows write access without constraints
+    - CKV_AWS_79    # IMDSv1 enabled
+    - CKV_AWS_149   # Secrets Manager secret not encrypted with a CMK

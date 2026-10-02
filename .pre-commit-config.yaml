@@ -1,0 +1,14 @@
+# Fast local checks (seconds). The same tools run again in CI, so skipping
+# these locally only delays feedback; it doesn't bypass anything.
+repos:
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.28.0
+    hooks:
+      - id: gitleaks
+  - repo: local
+    hooks:
+      - id: semgrep-offerline
+        name: semgrep (Offerline rules)
+        entry: semgrep scan --metrics=off --config .semgrep/offerline.yml --error
+        language: system
+        types: [python]

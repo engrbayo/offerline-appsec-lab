@@ -1,0 +1,95 @@
+# Custom rules for Offerline. Generic rule packs (p/python, p/owasp-top-ten)
+# can't know our authorization model; these encode it. Each rule has a
+# test file in .semgrep/tests/ with `ruleid:` / `ok:` annotations, run with
+# `semgrep --test .semgrep/`.
+rules:
+  - id: offerline.account-route-missing-authz
+    message: >-
+      Route loads an account by a caller-supplied id but never calls
+      authorize_account(). That is an IDOR: any partner can read any other
+      bank's transactions by changing the id. Call authorize_account(principal, account)
+      before using the account. (Threat model T-3, requirement SR-2.)
+    severity: ERROR
+    languages: [python]
+    metadata:
+      category: security
+      cwe: "CWE-639: Authorization Bypass Through User-Controlled Key"
+      owasp: "API1:2023 Broken Object Level Authorization"
+      confidence: HIGH
+      likelihood: HIGH
+      impact: HIGH
+    patterns:
+      - pattern-inside: |
+          @$APP.$METHOD(...)
+          def $ROUTE(..., account_id: str, ...):
+              ...
+      - pattern: $ACCOUNT = db.get_account($CONN, account_id)
+      - pattern-not-inside: |
+          $ACCOUNT = db.get_account($CONN, account_id)
+          ...
+          authorize_account($PRINCIPAL, $ACCOUNT)
+      - pattern-not-inside: |
+          $ACCOUNT = db.get_account($CONN, account_id)
+          ...
+          $X = authorize_account($PRINCIPAL, $ACCOUNT)
+
+  - id: offerline.jwt-decode-unsafe
+    message: >-
+      jwt.decode() must verify the signature and pin the algorithm list.
+      Without `algorithms=` or with verify_signature disabled, an attacker
+      can forge a token for any tenant. Use auth.current_principal instead. (SR-1)
+    severity: ERROR
+    languages: [python]
+    metadata:
+      category: security
+      cwe: "CWE-347: Improper Verification of Cryptographic Signature"
+      confidence: HIGH
+      likelihood: HIGH
+      impact: HIGH
+    pattern-either:
+      - pattern: 'jwt.decode(..., options={..., "verify_signature": False, ...}, ...)'
+      - patterns:
+          - pattern: jwt.decode(...)
+          - pattern-not: jwt.decode(..., algorithms=$ALGS, ...)
+
+  - id: offerline.outbound-request-unvalidated-url
+    message: >-
+      Outbound HTTP request uses a URL that came from a request body without
+      passing through egress.validate_outbound_url(). This is SSRF: the URL
+      could point at 169.254.169.254 (AWS credentials) or an internal service. (SR-6)
+    severity: ERROR
+    languages: [python]
+    metadata:
+      category: security
+      cwe: "CWE-918: Server-Side Request Forgery"
+      confidence: MEDIUM
+      likelihood: MEDIUM
+      impact: HIGH
+    mode: taint
+    pattern-sources:
+      - pattern: $BODY.url
+    pattern-sanitizers:
+      - pattern: validate_outbound_url(...)
+    pattern-sinks:
+      - pattern: requests.$METHOD($URL, ...)
+      - pattern: httpx.$METHOD($URL, ...)
+      - pattern: urllib.request.urlopen($URL, ...)
+
+  - id: offerline.sql-built-from-strings
+    message: >-
+      SQL built with an f-string, % or + is injectable. Use a parameterized
+      query: conn.execute("... WHERE id = ?", (value,)). (SR-4)
+    severity: ERROR
+    languages: [python]
+    metadata:
+      category: security
+      cwe: "CWE-89: SQL Injection"
+      confidence: HIGH
+      likelihood: MEDIUM
+      impact: HIGH
+    pattern-either:
+      - pattern: $CONN.execute(f"...", ...)
+      - pattern: $CONN.execute("..." % $X, ...)
+      - pattern: $CONN.execute("..." + $X, ...)
+      - pattern: $CONN.execute("..." + $X + "...", ...)
+      - pattern: $CONN.execute("...".format(...), ...)

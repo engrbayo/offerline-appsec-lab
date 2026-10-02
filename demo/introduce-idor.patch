@@ -1,0 +1,10 @@
+--- a/app/main.py
++++ b/app/main.py
+@@ -71,7 +71,6 @@
+     conn=Depends(get_conn),
+ ):
+     account = db.get_account(conn, account_id)
+-    authorize_account(principal, account)
+     return {"account_id": account_id, "transactions": db.list_transactions(conn, account_id, limit)}
+ 
+ 
