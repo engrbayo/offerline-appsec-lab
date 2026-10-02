@@ -2,9 +2,11 @@
 
 Partners register a webhook URL that our service will later call. Without
 checks, a partner (or anyone holding a stolen partner token) could point it
-at http://169.254.169.254/ and read the instance's AWS credentials, or at an
-internal admin service. Defense in depth: this check + IMDSv2 with hop limit 1
-(terraform) + egress through a proxy in production."""
+at the cloud credential endpoint and steal the service's AWS credentials:
+169.254.170.2 on ECS (task role credentials) or 169.254.169.254 on EC2
+(instance metadata). Or at an internal admin service. Defense in depth: this
+check + IMDSv2 with hop limit 1 wherever EC2 is used + egress through a
+proxy that only allows partner hosts in production."""
 import ipaddress
 import socket
 from typing import Callable, Iterable

@@ -23,7 +23,7 @@ def test_rejected(url):
         validate_outbound_url(url, ALLOWED, resolve=public)
 
 
-@pytest.mark.parametrize("addr", ["127.0.0.1", "10.0.4.7", "169.254.169.254", "::1", "fd00::1"])
+@pytest.mark.parametrize("addr", ["127.0.0.1", "10.0.4.7", "169.254.169.254", "169.254.170.2", "::1", "fd00::1"])
 def test_allowlisted_host_resolving_to_private_address_rejected(addr):
     with pytest.raises(UnsafeURL):
         validate_outbound_url("https://hooks.bank-a.example/cb", ALLOWED, resolve=lambda h: [addr])

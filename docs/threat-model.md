@@ -55,7 +55,7 @@ flowchart LR
 | T-4 | Elevation | Read-only partner token used to change the webhook | B2 | Med × High | SR-3 |
 | T-5 | Tampering | SQL injection through ids or filters | B2 | Low × Critical | SR-4 |
 | T-6 | Info disclosure | Full card numbers arrive in a bank file and get stored or logged | B1 | Med × Critical | SR-7 |
-| T-7 | Info disclosure / EoP | SSRF: webhook URL set to 169.254.169.254 to steal AWS creds | B3 | Med × Critical | SR-6 |
+| T-7 | Info disclosure / EoP | SSRF: webhook URL aimed at 169.254.170.2 (ECS task credentials) or 169.254.169.254 (EC2 metadata) | B3 | Med × Critical | SR-6 |
 | T-8 | Repudiation | No record of which partner read which account | B2 | Med × Med | SR-8 |
 | T-9 | Info disclosure | Stack traces in errors; responses cached by intermediaries | B2 | Med × Med | SR-9 |
 | T-10 | DoS | Huge file or unbounded page size exhausts the worker | B1, B2 | Med × Med | SR-5, SR-9, WAF rate limit |
@@ -88,7 +88,7 @@ These are the decisions that came out of the session, before code existed:
    "store, then mask". Rejecting at ingest keeps us out of PCI storage scope.
    That changed the file contract with banks: they send `card_last4` only.
 4. **Webhooks became an allowlist of registered hosts**, not free-form URLs,
-   plus IMDSv2 and resolved-IP checks as a second layer (T-7).
+   plus resolved-IP checks as a second layer, and an egress proxy in production (T-7).
 5. **Deploys use OIDC with a role pinned to one repo and a protected
    environment** (T-11), so there are no AWS keys in GitHub to steal.
 
