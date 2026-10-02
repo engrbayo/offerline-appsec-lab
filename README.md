@@ -12,7 +12,7 @@ servers call a FastAPI service for transactions and cashback offers.
 
 ```bash
 make install        # Python deps + semgrep, checkov, pip-audit (gitleaks: install separately)
-make test           # 54 tests + Semgrep rule tests
+make test           # 55 tests + Semgrep rule tests
 make scan           # every scanner -> results/ -> security gate
 make demo-idor      # break authorization in one line, watch two controls catch it
 make run            # API on :8000 (docs at /docs); then `make probe` in another shell
