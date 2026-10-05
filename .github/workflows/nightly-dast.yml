@@ -42,6 +42,6 @@ jobs:
           pip install pyyaml
           mkdir -p results && cp zap.json results/
           python3 security/gate.py --results results/ >> "$GITHUB_STEP_SUMMARY"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with: { name: dast-report, path: "zap.*" }
