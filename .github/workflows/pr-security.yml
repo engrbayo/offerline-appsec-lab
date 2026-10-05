@@ -101,7 +101,7 @@ jobs:
       pull-requests: write   # only this job may comment
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with: { path: results, merge-multiple: true }
       - name: Threat intel for prioritization (CISA KEV)
         run: |
