@@ -1,6 +1,8 @@
 # Pin the base by digest in real use (FROM python:3.13-slim@sha256:...) so a
 # re-tagged upstream image can't change what we ship. Dependabot bumps it.
-FROM python:3.13-slim
+# DEMO ONLY: a two-year-old base image with no security updates, so Trivy
+# finds fixable OS and Python CVEs. Never merge this branch.
+FROM python:3.13.0-slim-bookworm
 
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1 PIP_DISABLE_PIP_VERSION_CHECK=1
 
@@ -8,7 +10,9 @@ WORKDIR /srv
 COPY requirements.txt .
 # Next step for supply-chain integrity: lock with hashes (pip-compile --generate-hashes)
 # and install with --require-hashes.
-RUN pip install -r requirements.txt
+# pip isn't needed at runtime, and its vendored copies of urllib3, msgpack and
+# setuptools (pkg_resources) carry CVEs that Trivy reports against the image.
+RUN pip install -r requirements.txt && pip uninstall -y pip
 COPY app/ app/
 
 # Run as an unprivileged user; the filesystem can be mounted read-only in ECS.
