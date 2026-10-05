@@ -15,7 +15,7 @@ jobs:
       OFFERLINE_JWT_SECRET: ${{ secrets.DAST_JWT_SECRET }}   # test-only secret, never the production one
       OFFERLINE_ENABLE_DOCS: "true"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Start the API
         run: |
           docker build -t offerline-api:dast .

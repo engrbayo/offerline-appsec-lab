@@ -26,7 +26,7 @@ jobs:
   secrets:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with: { fetch-depth: 0 }
       - name: gitleaks (only commits in this PR)
         run: |
@@ -40,7 +40,7 @@ jobs:
     runs-on: ubuntu-latest
     container: semgrep/semgrep:latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with: { fetch-depth: 0 }
       - name: Custom rules have passing tests
         run: semgrep --test --metrics=off .semgrep/tests/
@@ -57,7 +57,7 @@ jobs:
   sca:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v5
         with: { python-version: "3.13" }
       - run: pip install pip-audit && pip-audit -r requirements.txt -f json -o pip-audit.json || true
@@ -67,7 +67,7 @@ jobs:
   iac:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: pip install checkov && checkov -d terraform --quiet -o json > checkov.json || true
       - uses: actions/upload-artifact@v4
         with: { name: checkov, path: checkov.json }
@@ -75,7 +75,7 @@ jobs:
   image:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: docker build -t offerline-api:${{ github.sha }} .
       - name: Trivy image scan (OS packages + Python libs in the image)
         run: |
@@ -88,7 +88,7 @@ jobs:
   tests:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v5
         with: { python-version: "3.13" }
       - run: pip install -r requirements-dev.txt && pytest -q
@@ -100,7 +100,7 @@ jobs:
       contents: read
       pull-requests: write   # only this job may comment
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/download-artifact@v4
         with: { path: results, merge-multiple: true }
       - name: Threat intel for prioritization (CISA KEV)
