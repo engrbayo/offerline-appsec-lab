@@ -1,6 +1,6 @@
 # Pin the base by digest in real use (FROM python:3.13-slim@sha256:...) so a
 # re-tagged upstream image can't change what we ship. Dependabot bumps it.
-FROM python:3.13-slim
+FROM python:3.14-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1 PIP_DISABLE_PIP_VERSION_CHECK=1
 
